@@ -23,6 +23,7 @@
 #include <vector>
 #include <algorithm>
 #include <assert.h>
+#include <cstdint>
 
 namespace fbxconv {
 namespace readers {
@@ -168,14 +169,14 @@ namespace readers {
 
 	// Provides information about an animation
 	struct AnimInfo {
-		float start;
-		float stop;
+		int64_t start;
+		int64_t stop;
 		float framerate;
 		bool translate;
 		bool rotate;
 		bool scale;
 
-		AnimInfo() : start(FLT_MAX), stop(-1.f), framerate(0.f), translate(false), rotate(false), scale(false) {}
+		AnimInfo() : start(0), stop(-1), framerate(0.f), translate(false), rotate(false), scale(false) {}
 
 		inline AnimInfo& operator+=(const AnimInfo& rhs) {
 			start = std::min(rhs.start, start);

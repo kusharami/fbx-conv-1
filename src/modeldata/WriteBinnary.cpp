@@ -286,7 +286,7 @@ namespace modeldata {
 	void Animation::writeBinary(FILE* file)
 	{
 	    write(id, file);
-		write(length, file);
+		write(float(length), file);
 		write(static_cast<unsigned int>(nodeAnimations.size()), file);
 
 		for(auto itr = nodeAnimations.begin(); itr != nodeAnimations.end(); itr++)
@@ -301,7 +301,7 @@ namespace modeldata {
 				Keyframe* keyframe = *itr1;
                 
 				// write time
-				write(keyframe->time, file);
+				write(float(keyframe->time), file);
                 
                 // write transform flag
                 unsigned char transformflag(0);

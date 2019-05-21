@@ -21,12 +21,13 @@
 #define MODELDATA_KEYFRAME_H
 
 #include "../json/BaseJSONWriter.h"
+#include <cstdint>
 
 namespace fbxconv {
 namespace modeldata {
 
 	struct Keyframe : public json::ConstSerializable {
-		float time;
+		double time;
 		float translation[3];
 		float rotation[4];
 		float scale[3];

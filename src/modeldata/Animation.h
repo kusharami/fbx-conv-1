@@ -31,11 +31,11 @@ namespace modeldata {
 
 	struct Animation : public json::ConstSerializable {
 		std::string id;
-        float length;
+		double length;
 		std::vector<NodeAnimation *> nodeAnimations;
 
         Animation():
-        length(0)
+        length(0.0)
         {
         }
 

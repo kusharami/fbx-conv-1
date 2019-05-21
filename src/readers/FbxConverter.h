@@ -748,13 +748,13 @@ namespace readers {
 			affectedNodes.clear();
 
 			FbxTimeSpan animTimeSpan = animStack->GetLocalTimeSpan();
-			float animStart = (float)(animTimeSpan.GetStart().GetMilliSeconds());
-			float animStop = (float)(animTimeSpan.GetStop().GetMilliSeconds());
+			int64_t animStart = animTimeSpan.GetStart().GetMilliSeconds();
+			int64_t animStop = animTimeSpan.GetStop().GetMilliSeconds();
 			if (animStop <= animStart)
-				animStop = 999999999.0f;
+				animStop = std::numeric_limits<int64_t>::max();
             
             //
-            static std::map<FbxNode *, std::list<float> > keyframesTimeMap;
+            static std::map<FbxNode *, std::list<int64_t> > keyframesTimeMap;
             
 			// Could also use animStack->GetLocalTimeSpan and animStack->BakeLayers, but its not guaranteed to be correct
 			const int layerCount = animStack->GetMemberCount<FbxAnimLayer>();
@@ -783,8 +783,8 @@ namespace readers {
 							ts.scale = propName == node->LclScaling.GetName();
                             
                             bool find = false;
-                            std::list<float> keyframesTimeList;
-                            std::map<FbxNode *, std::list<float> >::iterator iter = keyframesTimeMap.find(node);
+                            std::list<int64_t> keyframesTimeList;
+                            auto iter = keyframesTimeMap.find(node);
                             if (iter != keyframesTimeMap.end())
                                 find = true;
                             
@@ -827,8 +827,12 @@ namespace readers {
                                 }
                             }
                             
-							//if (ts.start < ts.stop)
-								affectedNodes[node] += ts;
+                            auto &nodeTs = affectedNodes[node];
+                            nodeTs += ts;
+                            if (nodeTs.start < animStart)
+                                nodeTs.start = animStart;
+                            if (nodeTs.stop > animStop)
+                                nodeTs.stop = animStop;
                             
                             if(settings->compressLevel >= COMPRESS_LEVEL_1)
                             {
@@ -866,14 +870,14 @@ namespace readers {
 				// Calculate all keyframes upfront
                 
                 if(settings->compressLevel == COMPRESS_LEVEL_1){
-                    std::list<float> keytimeList = keyframesTimeMap[(*itr).first];
+                    std::list<int64_t> keytimeList = keyframesTimeMap[(*itr).first];
                     for (const auto& val : keytimeList) {
-                        float time = val;
+                        int64_t time = val;
                         time = std::min(time, (*itr).second.stop);
-                        if(time < 0) continue;// discard time < 0
-                        fbxTime.SetMilliSeconds((FbxLongLong)time);
+                        if(time - animStart < 0) continue;// discard time < 0
+                        fbxTime.SetMilliSeconds(time);
                         Keyframe *kf = new Keyframe();
-                        kf->time = time;// - animStart;
+                        kf->time = time - animStart;
                         FbxAMatrix *m = &(*itr).first->EvaluateLocalTransform(fbxTime);
                         FbxVector4 v = m->GetT();
                         kf->translation[0] = (float)v.mData[0];
@@ -895,12 +899,12 @@ namespace readers {
                     const float stepSize = (*itr).second.framerate <= 0.f ? (*itr).second.stop - (*itr).second.start : 1000.f / (*itr).second.framerate;
                     const float last = (*itr).second.stop + stepSize * 0.5f;
                     
-                    for (float time = (*itr).second.start; time <= last; time += stepSize) {
+                    for (int64_t time = (*itr).second.start; time <= last; time += stepSize) {
                         time = std::min(time, (*itr).second.stop);
-                        if(time < 0) continue;// discard time < 0
-                        fbxTime.SetMilliSeconds((FbxLongLong)time);
+                        if(time - animStart < 0) continue;// discard time < 0
+                        fbxTime.SetMilliSeconds(time);
                         Keyframe *kf = new Keyframe();
-                        kf->time = time;// - animStart;
+                        kf->time = time - animStart;
                         FbxAMatrix *m = &(*itr).first->EvaluateLocalTransform(fbxTime);
                         FbxVector4 v = m->GetT();
                         kf->translation[0] = (float)v.mData[0];
@@ -922,8 +926,8 @@ namespace readers {
                 if(frames.size() == 0)
                     continue;
 
-                float length = frames[frames.size()-1]->time ;
-                float lengthSec = length / 1000.f;
+                double length = frames[frames.size()-1]->time ;
+                double lengthSec = length / 1000.0;
                 if(lengthSec > animation->length)
                     animation->length = lengthSec;
 
@@ -936,28 +940,28 @@ namespace readers {
 			}
 		}
 
-		inline void updateAnimTime(FbxAnimCurve *const &curve, AnimInfo &ts, const float &animStart, const float &animStop) {
+		inline void updateAnimTime(FbxAnimCurve *const &curve, AnimInfo &ts, int64_t animStart, int64_t animStop) {
 			FbxTimeSpan fts;
 			curve->GetTimeInterval(fts);
 			const FbxTime start = fts.GetStart();
 			const FbxTime stop = fts.GetStop();
-			ts.start = std::max(animStart, std::min(ts.start, (float)(start.GetMilliSeconds())));
-			ts.stop = std::min(animStop, std::max(ts.stop, (float)stop.GetMilliSeconds()));
+			ts.start = std::max(animStart, std::min(ts.start, start.GetMilliSeconds()));
+			ts.stop = std::min(animStop, std::max(ts.stop, stop.GetMilliSeconds()));
 			// Could check the number and type of keys (ie curve->KeyGetInterpolation) to lower the framerate
 			ts.framerate = std::max(ts.framerate, (float)stop.GetFrameRate(FbxTime::eDefaultMode));
 		}
         
-        inline void collectKeyFrames(FbxAnimCurve *const &curve, std::list<float>& keyframesTime)
+        inline void collectKeyFrames(FbxAnimCurve *const &curve, std::list<int64_t>& keyframesTime)
         {
             int key_cout = curve->KeyGetCount();
             for (int i = 0; i < key_cout; ++i)
             {
                 FbxAnimCurveKey curveKey = curve->KeyGet(i);
                 FbxTime fbx_time = curveKey.GetTime();
-                float keytime = (float)fbx_time.GetMilliSeconds();
+                int64_t keytime = fbx_time.GetMilliSeconds();
                 if(keytime < 0) continue;
                 
-                std::list<float>::iterator iter = std::find(keyframesTime.begin(), keyframesTime.end(), keytime);
+                auto iter = std::find(keyframesTime.begin(), keyframesTime.end(), keytime);
                 if (iter == keyframesTime.end())
                 {
                     keyframesTime.push_back(keytime);
@@ -1012,7 +1016,7 @@ namespace readers {
 //			}
 //		}
         
-        void addKeyframes(NodeAnimation *const &anim, std::vector<Keyframe *> &keyframes, float timeLength)
+        void addKeyframes(NodeAnimation *const &anim, std::vector<Keyframe *> &keyframes, double timeLength)
         {
             if (!keyframes.empty()) {
                 keyframes[0]->hasTranslation = true;
@@ -1029,7 +1033,7 @@ namespace readers {
 					k2 = keyframes[i];
 					k3 = keyframes[i+1];
 					// Check if the middle keyframe can be calculated by information, if so dont add it
-					if (!isLerp(k1->translation, k1->time, k2->translation, k2->time, k3->translation, k3->time, 3)) {
+					if (!isLerp(k1->translation, float(k1->time), k2->translation, float(k2->time), k3->translation, float(k3->time), 3)) {
                         k2->hasTranslation = true;
                         k1 = k2;
 					}
@@ -1046,7 +1050,7 @@ namespace readers {
 					k3 = keyframes[i+1];
 					// Check if the middle keyframe can be calculated by information, if so dont add it
 					//if (!isLerp(k1->rotation, k1->time, k2->rotation, k2->time, k3->rotation, k3->time, 3))// FIXME use slerp for quaternions
-                    if (!isSlerp(k1->rotation, k1->time, k2->rotation, k2->time, k3->rotation, k3->time, 4))
+					if (!isSlerp(k1->rotation,float(k1->time), k2->rotation, float(k2->time), k3->rotation, float(k3->time), 4))
                     {
                         k2->hasRotation = true;
                         k1 = k2;
@@ -1063,7 +1067,7 @@ namespace readers {
 					k2 = keyframes[i];
 					k3 = keyframes[i+1];
 					// Check if the middle keyframe can be calculated by information, if so dont add it
-					if (!isLerp(k1->scale, k1->time, k2->scale, k2->time, k3->scale, k3->time, 3)) {
+					if (!isLerp(k1->scale, float(k1->time), k2->scale, float(k2->time), k3->scale, float(k3->time), 3)) {
                         k2->hasScale = true;
                         k1 = k2;
 					} else{
