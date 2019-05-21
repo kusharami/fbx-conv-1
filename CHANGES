@@ -1,3 +1,6 @@
+[0.7.1]
+        [FIX]    correct animation lengths and key frame times if exported from Maya
+
 [0.7]	
         [NEW]    calculate the origin position rotation and scale when the model is single node(don’t have child node).
                  NOTE: your single node mode may have some change after you use the new fbx-conv
