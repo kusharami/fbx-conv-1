@@ -1,22 +1,47 @@
 QT -= core
 
 CONFIG += c++11 console warn_off
+CONFIG -= app_bundle
 
 INCLUDEPATH += $$(FBX_SDK_ROOT)/include
 
 DEFINES += FBXSDK_NEW_API
+
+unix {
+    QMAKE_CXXFLAGS_WARN_OFF -= -w
+    QMAKE_CXXFLAGS += -Wall
+}
+
+*-clang {
+	QMAKE_CXXFLAGS += \
+		-Wno-pragma-pack \
+		-Wno-varargs \
+		-Wno-null-dereference \
+		-Wno-reorder \
+		-Wno-unused-value \
+		-Wno-unused-variable \
+		-Wno-delete-non-virtual-dtor \
+		-Wno-format-security \
+		-Wno-unsequenced \
+		-Wno-format \
+		-Wno-parentheses
+}
+
+macx {
+	FBX_SDK_LIB_PATH = $$(FBX_SDK_ROOT)/lib/clang
+	LIBS += -framework Cocoa
+}
 
 win32-msvc* {
     QMAKE_CXXFLAGS_WARN_OFF -= -W0
     QMAKE_CXXFLAGS += -W3 /wd4244 /wd4100 /wd4018 /wd4189
     DEFINES += _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS
     FBX_SDK_LIB_PATH = $$(FBX_SDK_ROOT)/lib/vs2013
-}
-
-contains(QMAKE_HOST.arch, x86_64) {
-    FBX_SDK_LIB_PATH = $$FBX_SDK_LIB_PATH/x64
-} else {
-    FBX_SDK_LIB_PATH = $$FBX_SDK_LIB_PATH/x86
+	contains(QMAKE_HOST.arch, x86_64) {
+		FBX_SDK_LIB_PATH = $$FBX_SDK_LIB_PATH/x64
+	} else {
+		FBX_SDK_LIB_PATH = $$FBX_SDK_LIB_PATH/x86
+	}
 }
 
 CONFIG(debug, debug|release) {
@@ -25,7 +50,9 @@ CONFIG(debug, debug|release) {
     CONFIG_DIR = release
 }
 
-LIBS += -L$$FBX_SDK_LIB_PATH/$$CONFIG_DIR -llibfbxsdk-md
+LIBS += -L$$FBX_SDK_LIB_PATH/$$CONFIG_DIR
+macx:LIBS += -lfbxsdk
+win32-msvc*:LIBS += -llibfbxsdk-md
 
 SOURCES +=  \
     src/main.cpp \
