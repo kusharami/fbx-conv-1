@@ -1,4 +1,4 @@
-QT -= core
+QT -= core gui
 
 CONFIG += c++11 console warn_off
 CONFIG -= app_bundle
