@@ -62,6 +62,7 @@ class BaseJSONWriter;
 
 struct ConstSerializable {
 	virtual void serialize(BaseJSONWriter &writer) const = 0;
+	virtual ~ConstSerializable() {}
 };
 
 // The possible operations:
