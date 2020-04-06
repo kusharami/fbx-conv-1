@@ -37,9 +37,9 @@ static Keyframe *keyframeWithEntry(const QJsonValue& entry)
 	{
 		return nullptr;
 	}
-	
+
 	auto obj = entry.toObject();
-	
+
 	auto rotation = obj.value("rotation");
 	if (!rotation.isArray() && !rotation.isUndefined())
 	{
@@ -55,31 +55,31 @@ static Keyframe *keyframeWithEntry(const QJsonValue& entry)
 	{
 		return nullptr;
 	}
-	
+
 	auto keytime = obj.value("keytime");
 	if (!keytime.isDouble())
 	{
 		return nullptr;
 	}
-	
+
 	auto ra = rotation.toArray();
 	if (!rotation.isUndefined() && ra.size() != 4)
 	{
 		return nullptr;
 	}
-	
+
 	auto sa = scale.toArray();
 	if (!scale.isUndefined() && sa.size() != 3)
 	{
 		return nullptr;
 	}
-	
+
 	auto ta = translation.toArray();
 	if (!translation.isUndefined() && ta.size() != 3)
 	{
 		return nullptr;
 	}
-		
+
 	QScopedPointer<Keyframe> keyframe(new Keyframe);
 	keyframe->time = keytime.toDouble();
 	if ((keyframe->hasRotation = !ra.isEmpty()))
@@ -89,7 +89,7 @@ static Keyframe *keyframeWithEntry(const QJsonValue& entry)
 			keyframe->rotation[i] = float(ra.at(i).toDouble());
 		}
 	}
-	
+
 	if ((keyframe->hasScale = !sa.isEmpty()))
 	{
 		for (int i = 0; i < 3; i++)
@@ -97,7 +97,7 @@ static Keyframe *keyframeWithEntry(const QJsonValue& entry)
 			keyframe->scale[i] = float(sa.at(i).toDouble());
 		}
 	}
-	
+
 	if ((keyframe->hasTranslation = !ta.isEmpty()))
 	{
 		for (int i = 0; i < 3; i++)
@@ -105,7 +105,7 @@ static Keyframe *keyframeWithEntry(const QJsonValue& entry)
 			keyframe->translation[i] = float(ta.at(i).toDouble());
 		}
 	}
-	
+
 	return keyframe.take();
 }
 
@@ -115,24 +115,24 @@ static Bone *boneWithEntry(const QJsonValue& entry)
 	{
 		return nullptr;
 	}
-	
+
 	auto obj = entry.toObject();
-	
+
 	auto keyframes = obj.value("keyframes");
 	if (!keyframes.isArray())
 	{
 		return nullptr;
 	}
-	
+
 	auto boneId = obj.value("boneId");
 	if (!boneId.isString())
 	{
 		return nullptr;
 	}
-	
+
 	QScopedPointer<Bone> bone(new Bone);
 	bone->mutableNode.id = boneId.toString().toUtf8().toStdString();
-	
+
 	auto ka = keyframes.toArray();
 	bone->keyframes.reserve(ka.count());
 	for (auto it = ka.constBegin(); it != ka.constEnd(); ++it)
@@ -140,10 +140,10 @@ static Bone *boneWithEntry(const QJsonValue& entry)
 		auto keyframe = keyframeWithEntry(*it);
 		if (!keyframe)
 			return nullptr;
-		
+
 		bone->keyframes.push_back(keyframe);
 	}
-	
+
 	return bone.take();
 }
 
@@ -153,31 +153,31 @@ static Animation *animationWithEntry(const QJsonValue& entry)
 	{
 		return nullptr;
 	}
-	
+
 	auto obj = entry.toObject();
-	
+
 	auto bones = obj.value("bones");
 	if (!bones.isArray())
 	{
 		return nullptr;
 	}
-	
+
 	auto id = obj.value("id");
 	if (!id.isString())
 	{
 		return nullptr;
 	}
-	
+
 	auto length = obj.value("length");
 	if (!length.isDouble())
 	{
 		return nullptr;
 	}
-	
+
 	QScopedPointer<Animation> anim(new Animation);
 	anim->id = id.toString().toUtf8().toStdString();
 	anim->length = length.toDouble();
-	
+
 	auto ba = bones.toArray();
 	anim->nodeAnimations.reserve(ba.count());
 	for (auto it = ba.constBegin(); it != ba.constEnd(); ++it)
@@ -185,10 +185,10 @@ static Animation *animationWithEntry(const QJsonValue& entry)
 		auto bone = boneWithEntry(*it);
 		if (!bone)
 			return nullptr;
-		
+
 		anim->nodeAnimations.push_back(bone);
 	}
-	
+
 	return anim.take();
 }
 
@@ -207,7 +207,7 @@ bool parseAnimations(Model* to, const QJsonArray &from)
 
 		to->animations.push_back(anim);
 	}
-	
+
 	return true;
 }
 
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 
 	QCoreApplication::setApplicationName("c3t_to_c3b");
 	QCoreApplication::setApplicationVersion(APP_VERSION);
-	
+
 	QCommandLineParser parser;
 
 	parser.setApplicationDescription(
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	parser.addOption(separateAnimOption);
 
 	parser.process(a);
-	
+
 	auto inputFilePath = parser.value(inputOption);
 	auto outputFilePath = parser.value(outputOption);
 	if (inputFilePath.isEmpty() || outputFilePath.isEmpty())
@@ -259,9 +259,9 @@ int main(int argc, char *argv[])
 		qCritical("Please enter input and output file paths.");
 		return 5;
 	}
-	
+
 	bool separateAnimFiles = parser.isSet(separateAnimOption);
-	
+
 	QJsonDocument input;
 	{
 		QFile file(inputFilePath);
@@ -278,14 +278,14 @@ int main(int argc, char *argv[])
 				qCritical().noquote() << result.errorString();
 				return 2;
 			}
-			
+
 			if (!input.isObject())
 			{
 				return badInputFile();
 			}
 		}
 	}
-	
+
 	auto obj = input.object();
 	auto version = obj.value("version").toString().split('.');
 	bool ok = false;
@@ -296,23 +296,23 @@ int main(int argc, char *argv[])
 		if (ok)
 			model.version[1] = short(version[1].toUInt(&ok));
 	}
-	if (!ok 
+	if (!ok
 	||	model.version[0] != VERSION_HI
 	||	model.version[1] != VERSION_LO)
 	{
-		qCritical("Bad input c3t file version, %d.%d expected.", 
+		qCritical("Bad input c3t file version, %d.%d expected.",
 				  VERSION_HI, VERSION_LO);
 		return 3;
 	}
-	
+
 	auto animations = obj.value("animations");
 	if (!animations.isArray() && !animations.isUndefined())
 	{
 		return badInputFile();
 	}
-	
+
 	model.exportPart = EXPORT_PART_ANIMATION;
-	
+
 	if (!parseAnimations(&model, animations.toArray()))
 		return badInputFile();
 
@@ -323,14 +323,14 @@ int main(int argc, char *argv[])
 			outputFilePath = outputFilePath.left(
 						outputFilePath.length() - C3B_EXT.length());
 		}
-		
+
 		auto allAnimations = std::move(model.animations);
-		
+
 		bool ok = true;
 		for (auto anim : allAnimations)
 		{
 			model.animations = { anim };
-			if (!saveModel(&model, 
+			if (!saveModel(&model,
 				outputFilePath + '_' + QString::fromUtf8(
 				QByteArray(anim->id.c_str(), int(anim->id.size()))) + C3B_EXT))
 			{
@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-		
+
 		model.animations = std::move(allAnimations);
 		if (!ok)
 			return saveOutputFileError();
@@ -348,10 +348,10 @@ int main(int argc, char *argv[])
 		{
 			outputFilePath += C3B_EXT;
 		}
-		
+
 		if (!saveModel(&model, outputFilePath))
 			return saveOutputFileError();
 	}
-	
+
 	return 0;
-}	
+}
