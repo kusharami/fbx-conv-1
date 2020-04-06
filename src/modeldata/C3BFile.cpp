@@ -33,7 +33,7 @@ namespace fbxconv{
 		{
 			_models->writeBinary(_file);
 		}
-		
+
 		_refTable.updateOffset(_file);
 
 		fclose(_file);
@@ -59,37 +59,47 @@ namespace fbxconv{
 	{
 		_models = model;
 
-		//Add Mesh
-        if(model->meshes.size()>0)
-        {
-            Mesh* mesh = model->meshes[0];
-		    addToRefTable(mesh->GetObj());
-        }
-		//MeshPart* meshpart = mesh->parts[0];
-		//addToRefTable(meshpart->GetObj());
+		if (model->exportPart == EXPORT_PART_ALL ||
+			model->exportPart == EXPORT_PART_MODEL)
+		{
+			//Add Mesh
+			if(model->meshes.size()>0)
+			{
+				Mesh* mesh = model->meshes[0];
+				addToRefTable(mesh->GetObj());
+			}
+			//MeshPart* meshpart = mesh->parts[0];
+			//addToRefTable(meshpart->GetObj());
 
-		// Add Material
-        if(model->materials.size()>0)
-        {
-            Material* mat = model->materials[0];
-            addToRefTable(mat->GetObj());
-        }
-		// Add node
-        if(model->nodes.size()>0)
-        {
-            Node* node = model->nodes[0];
-            addToRefTable(node->GetObj());
-        }
-        
-        // Add animations
-	    if(model->animations.size()>0)
-        {
-            for (int i = 0; i < model->animations.size(); i++)
-            {
-                Animation* anim = model->animations[i];
-                addToRefTable(anim->GetObj());
-            }
-        }
+			// Add Material
+			if(model->materials.size()>0)
+			{
+				Material* mat = model->materials[0];
+				addToRefTable(mat->GetObj());
+			}
+
+
+			// Add node
+			if(model->nodes.size()>0)
+			{
+				Node* node = model->nodes[0];
+				addToRefTable(node->GetObj());
+			}
+		}
+
+		if (model->exportPart == EXPORT_PART_ALL ||
+			model->exportPart == EXPORT_PART_ANIMATION)
+		{
+			// Add animations
+			if(model->animations.size()>0)
+			{
+				for (int i = 0; i < model->animations.size(); i++)
+				{
+					Animation* anim = model->animations[i];
+					addToRefTable(anim->GetObj());
+				}
+			}
+		}
 
 	}
 
