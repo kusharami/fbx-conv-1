@@ -1,6 +1,6 @@
-VERSION = 1.0.0
+VERSION = 1.0.1
 
-QT -= gui   
+QT -= gui
 DEFINES += "APP_VERSION=\"\\\"$$VERSION\\\"\""
 TARGET = c3t_to_c3b
 TEMPLATE = app

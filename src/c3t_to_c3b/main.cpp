@@ -233,8 +233,10 @@ int main(int argc, char *argv[])
 	
 	QCommandLineParser parser;
 
-	parser.setApplicationDescription("Convert c3t to c3b. "
-									 "Version 1.0.0 supports animations only.");
+	parser.setApplicationDescription(
+				QString("Convert c3t to c3b. "
+						"Version %1 supports animations only.").arg(
+					QLatin1String(APP_VERSION)));
 	parser.addVersionOption();
 	parser.addHelpOption();
 	QCommandLineOption inputOption(
