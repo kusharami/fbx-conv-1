@@ -755,6 +755,7 @@ namespace readers {
             
             //
             static std::map<FbxNode *, std::list<int64_t> > keyframesTimeMap;
+            bool hasCompression = settings->compressLevel >= COMPRESS_LEVEL_1;
             
 			// Could also use animStack->GetLocalTimeSpan and animStack->BakeLayers, but its not guaranteed to be correct
 			const int layerCount = animStack->GetMemberCount<FbxAnimLayer>();
@@ -782,48 +783,26 @@ namespace readers {
 							ts.rotate = propName == node->LclRotation.GetName();
 							ts.scale = propName == node->LclScaling.GetName();
                             
-                            bool find = false;
-                            std::list<int64_t> keyframesTimeList;
-                            auto iter = keyframesTimeMap.find(node);
-                            if (iter != keyframesTimeMap.end())
-                                find = true;
+                            std::list<int64_t> *keyframesTimeList = hasCompression
+                                ? &keyframesTimeMap[node]
+                                : nullptr;
                             
-							if (curve = prop.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_X)){
-								
-                                updateAnimTime(curve, ts, animStart, animStop);
-                                
-                                if(settings->compressLevel >= COMPRESS_LEVEL_1)
-                                {
-                                    if(find)
-                                        collectKeyFrames(curve, keyframesTimeMap[node]);
-                                    else
-                                        collectKeyFrames(curve, keyframesTimeList);
+                            static const char * const CURVE_CHANNELS[] = {
+                                FBXSDK_CURVENODE_COMPONENT_X,
+                                FBXSDK_CURVENODE_COMPONENT_Y,
+                                FBXSDK_CURVENODE_COMPONENT_Z,
+                            };
+                            
+                            for (auto channel : CURVE_CHANNELS) {
+                                curve = prop.GetCurve(layer, channel);
+                                if (!curve){
+                                    continue;
                                 }
-                            }
-                            
-							if (curve = prop.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Y)){
-								
                                 updateAnimTime(curve, ts, animStart, animStop);
                                 
-                                if(settings->compressLevel >= COMPRESS_LEVEL_1)
+                                if (hasCompression)
                                 {
-                                    if(find)
-                                        collectKeyFrames(curve, keyframesTimeMap[node]);
-                                    else
-                                        collectKeyFrames(curve, keyframesTimeList);
-                                }
-                            }
-                            
-							if (curve = prop.GetCurve(layer, FBXSDK_CURVENODE_COMPONENT_Z)){
-								
-                                updateAnimTime(curve, ts, animStart, animStop);
-                                
-                                if(settings->compressLevel >= COMPRESS_LEVEL_1)
-                                {
-                                    if(find)
-                                        collectKeyFrames(curve, keyframesTimeMap[node]);
-                                    else
-                                        collectKeyFrames(curve, keyframesTimeList);
+                                    collectKeyFrames(curve, *keyframesTimeList);
                                 }
                             }
                             
@@ -834,12 +813,9 @@ namespace readers {
                             if (nodeTs.stop > animStop)
                                 nodeTs.stop = animStop;
                             
-                            if(settings->compressLevel >= COMPRESS_LEVEL_1)
+                            if (hasCompression)
                             {
-                                if(!find)
-                                    keyframesTimeMap[node] = keyframesTimeList;
-                                
-                                keyframesTimeMap[node].sort();
+                                keyframesTimeList->sort();
                             }
 						}
 					}
@@ -869,8 +845,8 @@ namespace readers {
 				FbxTime fbxTime;
 				// Calculate all keyframes upfront
                 
-                if(settings->compressLevel == COMPRESS_LEVEL_1){
-                    std::list<int64_t> keytimeList = keyframesTimeMap[(*itr).first];
+                if (hasCompression) {
+                    const auto &keytimeList = keyframesTimeMap[(*itr).first];
                     for (const auto& val : keytimeList) {
                         int64_t time = val;
                         time = std::min(time, (*itr).second.stop);
@@ -896,8 +872,8 @@ namespace readers {
                     }
                 }
                 else{
-                    const float stepSize = (*itr).second.framerate <= 0.f ? (*itr).second.stop - (*itr).second.start : 1000.f / (*itr).second.framerate;
-                    const float last = (*itr).second.stop + stepSize * 0.5f;
+                    int64_t stepSize = (*itr).second.framerate <= 0.f ? (*itr).second.stop - (*itr).second.start : int64_t(1000.f / (*itr).second.framerate);
+                    int64_t last = (*itr).second.stop + stepSize / 2;
                     
                     for (int64_t time = (*itr).second.start; time <= last; time += stepSize) {
                         time = std::min(time, (*itr).second.stop);
@@ -926,7 +902,7 @@ namespace readers {
                 if(frames.size() == 0)
                     continue;
 
-                double length = frames[frames.size()-1]->time ;
+                double length = frames.back()->time;
                 double lengthSec = length / 1000.0;
                 if(lengthSec > animation->length)
                     animation->length = lengthSec;
@@ -968,61 +944,17 @@ namespace readers {
                 }
             }
         }
-
-//		void addKeyframes(NodeAnimation *const &anim, std::vector<Keyframe *> &keyframes) {
-//			bool translate = false, rotate = false, scale = false;
-//			// Check which components are actually changed
-//			for (std::vector<Keyframe *>::const_iterator itr = keyframes.begin(); itr != keyframes.end(); ++itr) {
-//				if (!translate && !cmp(anim->node->transform.translation, (*itr)->translation, 3))
-//					translate = true;
-//				if (!rotate && !cmp(anim->node->transform.rotation, (*itr)->rotation, 3))
-//					rotate = true;
-//				if (!scale && !cmp(anim->node->transform.scale, (*itr)->scale, 3))
-//					scale = true;
-//			}
-//			// This allows to only export the values actual needed
-//			anim->translate = translate;
-//			anim->rotate = rotate;
-//			anim->scale = scale;
-//			for (std::vector<Keyframe *>::const_iterator itr = keyframes.begin(); itr != keyframes.end(); ++itr) {
-//				(*itr)->hasRotation = rotate;
-//				(*itr)->hasScale = scale;
-//				(*itr)->hasTranslation = translate;
-//			}
-//
-//			if (!keyframes.empty()) {
-//				anim->keyframes.push_back(keyframes[0]);
-//				const int last = (int)keyframes.size()-1;
-//                float max = keyframes[last]->time;
-//				Keyframe *k1 = keyframes[0], *k2, *k3;
-//				for (int i = 1; i < last; i++) {
-//					k2 = keyframes[i];
-//					k3 = keyframes[i+1];
-//					// Check if the middle keyframe can be calculated by information, if so dont add it
-//					if ((translate && !isLerp(k1->translation, k1->time, k2->translation, k2->time, k3->translation, k3->time, 3)) ||
-//						(rotate && !isLerp(k1->rotation, k1->time, k2->rotation, k2->time, k3->rotation, k3->time, 3)) || // FIXME use slerp for quaternions
-//						(scale && !isLerp(k1->scale, k1->time, k2->scale, k2->time, k3->scale, k3->time, 3))) {
-//                            k2->time /= max;
-//							anim->keyframes.push_back(k2);
-//							k1 = k2;
-//					} else
-//						delete k2;
-//				}
-//				if (last > 0)
-//                {
-//                    keyframes[last]->time = 1;
-//					anim->keyframes.push_back(keyframes[last]);
-//                }
-//			}
-//		}
         
         void addKeyframes(NodeAnimation *const &anim, std::vector<Keyframe *> &keyframes, double timeLength)
         {
-            if (!keyframes.empty()) {
+            if (!keyframes.empty()) {                
+                for (auto kf : keyframes) {
+                    kf->time /= timeLength;
+                }
+                
                 keyframes[0]->hasTranslation = true;
                 keyframes[0]->hasRotation = true;
                 keyframes[0]->hasScale = true;
-                keyframes[0]->time /= timeLength;
                 anim->keyframes.push_back(keyframes[0]);
                 
                 // translation frame
@@ -1079,7 +1011,6 @@ namespace readers {
                 for (int i = 1; i < last; i++) {
 					k2 = keyframes[i];
                     if(k2->hasTranslation || k2->hasScale || k2->hasRotation){
-                        k2->time /= timeLength;
                         anim->keyframes.push_back(k2);
                     }
                     else{
@@ -1089,7 +1020,6 @@ namespace readers {
                 
 				if (last > 0)
                 {
-                    keyframes[last]->time /= timeLength;
                     keyframes[last]->hasTranslation = true;
                     keyframes[last]->hasRotation = true;
                     keyframes[last]->hasScale = true;
