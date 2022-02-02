@@ -769,8 +769,11 @@ namespace readers {
 					const int nc = curveNode->GetDstPropertyCount();
 					for (int o = 0; o < nc; o++) {
 						FbxProperty prop = curveNode->GetDstProperty(o);
-						FbxNode *node = static_cast<FbxNode *>(prop.GetFbxObject());
-						if (node) {
+						auto obj = prop.GetFbxObject();
+						FbxNode *node = dynamic_cast<FbxNode *>(obj);
+						if (!node) {
+							printf("FbxNode expected but %s found.", obj->ClassId.GetName());
+						} else {
 							FbxString propName = prop.GetName();
 							// Only add translation, scaling or rotation
 							if ((!node->LclTranslation.IsValid() || propName != node->LclTranslation.GetName()) && 
